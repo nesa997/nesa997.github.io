@@ -1,6 +1,5 @@
 ---
 title: "HTB: Eighteen"
-date: 2026-04-11 12:00:00 +0100
 categories: [HackTheBox, Easy]
 tags: [windows, active-directory, mssql, impersonation, pbkdf2, hashcat, password-spray, badsuccessor, dmsa, pass-the-hash]
 image:
