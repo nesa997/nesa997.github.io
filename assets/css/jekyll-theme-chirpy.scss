@@ -5,23 +5,21 @@
   $theme: '{{ site.theme_mode }}'
 );
 
-/* prettier-ignore */
+
 @use 'main
 {%- if jekyll.environment == 'production' -%}
   .bundle
 {%- endif -%}
 ';
 
-/* ============================================================
-   Custom overrides — obriši bilo koju liniju ispod da vratiš
-   taj element nazad.
-   ============================================================ */
 
-/* Sakrij "This post is licensed under CC BY 4.0" */
+.post-meta span:nth-of-type(2) { display: none !important; }
+
+
 .license-wrapper { display: none !important; }
 
-/* Sakrij "Share:" dugmiće */
+
 .share-wrapper { display: none !important; }
 
-/* Sakrij OLDER / NEWER navigaciju na dnu posta */
+
 .post-navigation { display: none !important; }
