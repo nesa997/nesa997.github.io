@@ -2,13 +2,12 @@
 title: "HTB: Eighteen"
 categories: [HackTheBox, Easy]
 tags: [windows, active-directory, mssql, impersonation, pbkdf2, hashcat, password-spray, badsuccessor, dmsa, pass-the-hash]
-image:
-  path: banner.png
-  alt: "HackTheBox Eighteen"
 media_subpath: /assets/img/htb-eighteen/
 mermaid: true
 description: "MSSQL login impersonation leaks an admin PBKDF2 hash, which cracks to a password reused across the domain. A password spray lands a foothold, and the Windows Server 2025 BadSuccessor (dMSA) technique escalates to Domain Admin."
 ---
+
+![Eighteen — HackTheBox](banner.png)
 
 ## Machine Overview
 
